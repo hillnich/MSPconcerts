@@ -2,14 +2,17 @@ from bs4 import BeautifulSoup
 import requests
 import time
 import re
+import smtplib
+from email.mime.text import MIMEText
 
 class concerts():
 
     """
-   Attributes:
-       btimes: the bands and times scraped from webpages
-       bandlist: list of bands you're interested in finding shows for
-       goodshows: the selection of available shows corresponding to bands you like
+    Attributes:
+       btimes:    the bands and times scraped from webpages
+       bandlist:  list of bands you're interested in finding shows for
+       goodshows: the selection of available shows corresponding to 
+                  bands you like
     """
 
     def __init__(self):
@@ -19,10 +22,11 @@ class concerts():
         """
         
         self.btimes = {}
-        self.bandlist = ['adele', 'bon iver', 'andrew bird', 'little fevers',
-                         'grimes', 'brandi carlisle']
         self.goodshows = []
 
+        with open('bandlist.in') as f:
+            self.bandlist = [x.strip('\n') for x in f.readlines()]
+        
     def ScrapeShows(self):
 
         """
@@ -33,7 +37,7 @@ class concerts():
         self.FirstAvenue()
         self.Amsterdam()
 
-    def FindGoodsShows(self):
+    def FindGoodShows(self):
 
         """
         Cross-references all the 'good bands' against
@@ -48,10 +52,58 @@ class concerts():
                     
                     try:
                         re.search(band, d, re.IGNORECASE).group(0)
-                        self.goodshows.append(d)
+                        self.goodshows.append(d + '\n\n')
                     except:
                         pass            
-        
+
+    def EmailShowsAlert(self):
+
+        """
+        Emails out the list of shows held in the
+        goodshows attribute with emails specified
+        in the 'email.from' and 'email.to'
+        text files
+        """
+
+        # Pull in email sender and login info
+        sender = {}
+        with open("email.from") as f:
+
+            # Grab email
+            try:
+                (key, val) = f.readline().split(": ")
+                sender['email'] = val.strip("\n")
+            except:
+                (key, val) = f.readline().split(":")
+                sender['email'] = val.strip("\n")
+
+            # Grab password
+            try:
+                (key, val) = f.readline().split(": ")
+                sender['password'] = val.strip("\n")
+            except:
+                (key, val) = f.readline().split(":")
+                sender['password'] = val.strip("\n")
+
+        # Pull in list of recipients
+        with open("email.to") as f:
+            receivers = [x.strip('\n') for x in f.readlines()]
+
+        # Start encrypted SMTP session
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender['email'], sender['password'])
+ 
+        # Construct message
+        body = """""".join(self.goodshows)
+        msg = MIMEText(body)
+        msg['Subject'] = "Concerts of interest in MSP"
+        msg['From'] = sender['email']
+        msg['To'] = ", ".join(receivers)
+
+        # Send message and end server session
+        server.sendmail(sender['email'], receivers, msg.as_string())
+        server.quit()
         
     def FirstAvenue(self):
 
@@ -83,7 +135,7 @@ class concerts():
             datetime = []
             page = "http://first-avenue.com/calendar/all/{:d}-{:02d}".format(years[i],
                                                                              months[i])
-            print "Scraping:", page
+            print "   Scraping:", page
             soup = BeautifulSoup(requests.get(page).text, 'html5lib')
             
             # Grab concert dates:
@@ -126,7 +178,7 @@ class concerts():
       # Grab the one events page they have:
         page = "http://www.amsterdambarandhall.com/events-new/"
 
-        print "Scraping:", page
+        print "   Scraping:", page
         soup = BeautifulSoup(requests.get(page).text, 'html5lib')
 
         # Piece together the dates
@@ -162,14 +214,14 @@ class concerts():
         else:
             print "AMSTERDAM SCRAPER IS BROKEN! FIX!"
             
-            
-
 
 if __name__ == '__main__':
 
     shows = concerts()
+    print time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
     shows.ScrapeShows()
     shows.FindGoodShows()
+    shows.EmailShowsAlert()
 
 
 

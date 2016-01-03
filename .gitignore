@@ -1,10 +1,8 @@
-# IMDb list data and databases
-*.list
-*.list.gz
-*.db
-*.csv
-*.sqlite
-rating_scale.txt
+# Specific input and log files
+email.to
+email.from
+bandlist.in
+MSPconcerts.log
 
 # Spam data
 spam_data/*/
