@@ -5,15 +5,53 @@ import re
 
 class concerts():
 
+    """
+   Attributes:
+       btimes: the bands and times scraped from webpages
+       bandlist: list of bands you're interested in finding shows for
+       goodshows: the selection of available shows corresponding to bands you like
+    """
+
     def __init__(self):
 
+        """
+        Creates attributes we fill with rest of methods
+        """
+        
         self.btimes = {}
-        self.bandlist = ['adele', 'bon iver', 'andrew bird']
+        self.bandlist = ['adele', 'bon iver', 'andrew bird', 'little fevers',
+                         'grimes', 'brandi carlisle']
+        self.goodshows = []
 
     def ScrapeShows(self):
 
+        """
+        Executes each method corresponding to a scrape of a given
+        concert venue
+        """
+        
         self.FirstAvenue()
         self.Amsterdam()
+
+    def FindGoodsShows(self):
+
+        """
+        Cross-references all the 'good bands' against
+        available shows and returns resulting list
+        """
+        
+        for key in self.btimes.keys():
+            
+            for d in self.btimes[key]:
+                
+                for band in self.bandlist:
+                    
+                    try:
+                        re.search(band, d, re.IGNORECASE).group(0)
+                        self.goodshows.append(d)
+                    except:
+                        pass            
+        
         
     def FirstAvenue(self):
 
@@ -66,7 +104,7 @@ class concerts():
             # Put the times and bands all together:
 
             if (len(datetime) == len(bands)):
-                bkey = "{:d}-{:02d}".format(years[i],  months[i])
+                bkey = "First-{:d}-{:02d}".format(years[i],  months[i])
                 self.btimes[bkey] = ["{:s} - {:s}".format(datetime[j],
                                                           str(bands[j].encode('utf8')))
                                      for j, _ in enumerate(bands)]
@@ -78,37 +116,62 @@ class concerts():
             time.sleep(query_rate)
 
 
-    def Amsterdam():
+    def Amsterdam(self):
 
         """
-        Scrapes from Amsterdam for concerts
+        Scrapes from St. Paul's Amsterdam's events page
+        for concerts
         """
-
-        # Grab the one events page they have:
+  
+      # Grab the one events page they have:
         page = "http://www.amsterdambarandhall.com/events-new/"
+
+        print "Scraping:", page
         soup = BeautifulSoup(requests.get(page).text, 'html5lib')
 
-    
-    
+        # Piece together the dates
+        day = [d.string for d in soup('span', 'event-day')]
+        month = [mon.string for mon in soup('span', 'event-month')]
+        date = [d.string for d in soup('span', 'event-date')]                          
+            
+        if (len(day) == len(month) == len(date)):
+            dates = ["{:s}, {:s} {:s}".format(day[i], month[i], date[i])
+                     for i,_ in enumerate(day)]
 
-def find_good_concerts():
+        # Grab the bands/events, filtering out none types and ursl
+        bands = [a.string
+                 for div in soup('div', 'event-info-block')
+                 for a in div('a')]
+        bands = filter(None, bands)
+        bands = [None
+                 if re.match(".*http://.*", x)
+                 else x
+                 for x in bands]
+        bands = filter(None, bands)
+                 
+                 
+        self.btimes['Amsterdam'] = []
 
-    first_ave = FirstAvenue()
-
-    g = []
-    for key in first_ave.keys():
-
-        for d in first_ave[key]:
-
-            for band in bandlist:
-
-                try:
-                    re.search(band, d, re.IGNORECASE).group(0)
-                    g.append(d)
-                except:
-                    pass
+        if (len(bands) == len(dates)):
+            for j, _ in enumerate(bands):
+                
+                self.btimes['Amsterdam'].append("{:s} - {:s}".
+                                                format(dates[j],
+                                                       str(bands[j].encode('utf8'))))
+                
+        else:
+            print "AMSTERDAM SCRAPER IS BROKEN! FIX!"
+            
+            
 
 
+if __name__ == '__main__':
 
-    return g
+    shows = concerts()
+    shows.ScrapeShows()
+    shows.FindGoodShows()
+
+
+
+
         
