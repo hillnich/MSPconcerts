@@ -46,6 +46,10 @@ class Bikes():
         else:
             self.bikes_page = bikes_page
 
+        self.last_sent_email = 'last_sent_time.pkl'
+        self.dt_max = 5
+
+
     def find_all_the_bikes(self):
 
         """
@@ -219,7 +223,7 @@ class Bikes():
 
         body = body + "<br><br>MOST RECENT CACHED BIKE INVENTORY"
         body = body + "<br>---------------------------------"
-        
+
         for bike in bike_dict['old_results']:
             body = body + "<pre>" + json.dumps(bike, indent = 2) + "</pre>"
  
@@ -233,6 +237,13 @@ class Bikes():
         # Send message and end server session
         server.sendmail(sender['email'], receivers, msg.as_string())
         server.quit()
+
+        # Cache the time so we can use it later to determine if we should send
+        # one just as a regular reminder
+        with open(self.last_sent_email, 'wb') as f:
+            pickle.dump(datetime.now(), f)
+
+
 
     def check_cached_results(self, new_bikes_and_sizes, 
                              max_cached=3, cache_base=None):
@@ -317,6 +328,19 @@ class Bikes():
         _ = [os.remove(filename) for i, filename in enumerate(cached_results) 
                                  if i >= max_cached]
 
+        # Lastly check the last sent email time. If enough
+        # time has passed send the email now matter what 
+        last_sent = None
+        for file in os.listdir(os.getcwd()):
+            if file == self.last_sent_email:
+                with open(self.last_sent_email, 'rb') as f:
+                    last_sent = pickle.load(f)
+
+
+        if (last_sent is not None):
+            dt = datetime.now() - last_sent
+            if (dt.total_seconds() > self.dt_max):
+                send_email = True
         # Put everything in a dict to return
         email_results = {"send_email": send_email,
                          "new_results": new_results,
